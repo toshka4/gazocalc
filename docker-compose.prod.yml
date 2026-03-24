@@ -1,0 +1,107 @@
+services:
+  # ── PostgreSQL ──
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gazoblock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-gazoblock}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gazoblock}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Backend API (Fastify) ──
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gazoblock}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gazoblock}?schema=public
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      # --- API на gazocalc.ru/api (HTTPS) ---
+      - "traefik.http.routers.gazocalc-api.rule=Host(`gazocalc.ru`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.gazocalc-api.priority=20"
+      - "traefik.http.routers.gazocalc-api.entrypoints=websecure"
+      - "traefik.http.routers.gazocalc-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gazocalc-api.service=gazocalc-backend"
+      # --- API на admin.gazocalc.ru/api (HTTPS) ---
+      - "traefik.http.routers.gazocalc-admin-api.rule=Host(`admin.gazocalc.ru`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.gazocalc-admin-api.priority=20"
+      - "traefik.http.routers.gazocalc-admin-api.entrypoints=websecure"
+      - "traefik.http.routers.gazocalc-admin-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gazocalc-admin-api.service=gazocalc-backend"
+      # --- Сервис ---
+      - "traefik.http.services.gazocalc-backend.loadbalancer.server.port=3000"
+
+  # ── Frontend SPA (public site) ──
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_URL: https://gazocalc.ru
+    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      # HTTPS
+      - "traefik.http.routers.gazocalc-frontend.rule=Host(`gazocalc.ru`)"
+      - "traefik.http.routers.gazocalc-frontend.priority=10"
+      - "traefik.http.routers.gazocalc-frontend.entrypoints=websecure"
+      - "traefik.http.routers.gazocalc-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gazocalc-frontend.loadbalancer.server.port=80"
+      # HTTP → HTTPS redirect
+      - "traefik.http.middlewares.gazocalc-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.gazocalc-redirect.redirectscheme.permanent=true"
+      - "traefik.http.routers.gazocalc-frontend-http.rule=Host(`gazocalc.ru`)"
+      - "traefik.http.routers.gazocalc-frontend-http.entrypoints=web"
+      - "traefik.http.routers.gazocalc-frontend-http.middlewares=gazocalc-redirect"
+
+  # ── Admin Panel SPA ──
+  admin:
+    build:
+      context: ./admin
+    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      # HTTPS
+      - "traefik.http.routers.gazocalc-admin.rule=Host(`admin.gazocalc.ru`)"
+      - "traefik.http.routers.gazocalc-admin.priority=10"
+      - "traefik.http.routers.gazocalc-admin.entrypoints=websecure"
+      - "traefik.http.routers.gazocalc-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gazocalc-admin.loadbalancer.server.port=80"
+      # HTTP → HTTPS redirect
+      - "traefik.http.middlewares.gazocalc-admin-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.gazocalc-admin-redirect.redirectscheme.permanent=true"
+      - "traefik.http.routers.gazocalc-admin-http.rule=Host(`admin.gazocalc.ru`)"
+      - "traefik.http.routers.gazocalc-admin-http.entrypoints=web"
+      - "traefik.http.routers.gazocalc-admin-http.middlewares=gazocalc-admin-redirect"
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+  proxy:
+    external: true

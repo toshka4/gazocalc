@@ -1,0 +1,10 @@
+node_modules
+admin/node_modules
+backend
+dist
+admin/dist
+.git
+.env
+.env.local
+.env.production
+*.md

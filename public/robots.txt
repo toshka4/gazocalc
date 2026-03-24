@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /assets/
+
+Host: gazocalc.ru
+Sitemap: https://gazocalc.ru/sitemap.xml

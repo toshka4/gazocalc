@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  IN_PROGRESS
+  QUALIFIED
+  WON
+  LOST
+  ARCHIVED
+}
+
+model Lead {
+  id            String     @id @default(uuid())
+  name          String
+  phone         String
+  email         String     @default("")
+  city          String
+  comment       String     @default("")
+  source        String     @default("website")
+  status        LeadStatus @default(NEW)
+
+  // Поля для будущей админки
+  managerNotes  String?
+  crmExportedAt DateTime?
+
+  calculation   Calculation?
+
+  statusHistory LeadStatusHistory[]
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([city])
+}
+
+model LeadStatusHistory {
+  id         String     @id @default(uuid())
+  leadId     String
+  lead       Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  fromStatus LeadStatus
+  toStatus   LeadStatus
+  comment    String?
+  createdAt  DateTime   @default(now())
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model Calculation {
+  id             String  @id @default(uuid())
+  leadId         String  @unique
+  lead           Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Входные параметры: размеры дома
+  houseLength    Float
+  houseWidth     Float
+  wallHeight     Float
+  wallThickness  Float   // мм
+
+  // Входные параметры: блок
+  blockLength    Int     // мм
+  blockHeight    Int     // мм
+  blockThickness Int     // мм (ширина блока)
+  density        String  // D400 / D500 / D600
+
+  // Входные параметры: проёмы и дополнения
+  windowArea     Float
+  doorArea       Float
+  reservePercent Float
+  hasPartitions  Boolean @default(false)
+  partitionArea  Float   @default(0)
+  hasPediments   Boolean @default(false)
+  pedimentArea   Float   @default(0)
+  hasDelivery    Boolean @default(false)
+
+  // Входные параметры: цены
+  pricePerM3     Float
+  glueBagPrice   Float
+  deliveryPrice  Float
+
+  // Результаты расчёта
+  totalVolume    Float   // м³
+  totalBlocks    Int     // шт
+  totalPallets   Int     // шт
+  totalGlueBags  Int     // шт
+  totalWeight    Float   // кг
+  blocksCost     Float   // ₽
+  glueCost       Float   // ₽
+  deliveryCost   Float   // ₽
+  totalCost      Float   // ₽
+
+  // Будущее расширение
+  pdfUrl         String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
