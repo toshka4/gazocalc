@@ -30,6 +30,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    extra_hosts:
+      - "api.telegram.org:149.154.167.220"
     restart: unless-stopped
     networks:
       - internal

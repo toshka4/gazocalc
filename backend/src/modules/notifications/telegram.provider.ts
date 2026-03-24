@@ -5,36 +5,36 @@ const TELEGRAM_API = "https://api.telegram.org";
 
 function formatLeadMessage(lead: Lead, calc: Calculation): string {
   const lines = [
-    "🏠 *Новая заявка с сайта!*",
+    "🏠 <b>Новая заявка с сайта!</b>",
     "",
-    `👤 *Клиент:* ${escapeMarkdown(lead.name)}`,
-    `📱 *Телефон:* ${escapeMarkdown(lead.phone)}`,
+    `👤 <b>Клиент:</b> ${esc(lead.name)}`,
+    `📱 <b>Телефон:</b> ${esc(lead.phone)}`,
   ];
 
   if (lead.email) {
-    lines.push(`📧 *Email:* ${escapeMarkdown(lead.email)}`);
+    lines.push(`📧 <b>Email:</b> ${esc(lead.email)}`);
   }
 
-  lines.push(`🏙 *Город:* ${escapeMarkdown(lead.city)}`);
+  lines.push(`🏙 <b>Город:</b> ${esc(lead.city)}`);
 
   if (lead.comment) {
-    lines.push(`💬 *Комментарий:* ${escapeMarkdown(lead.comment)}`);
+    lines.push(`💬 <b>Комментарий:</b> ${esc(lead.comment)}`);
   }
 
   lines.push(
     "",
-    "📊 *Расчёт:*",
+    "📊 <b>Расчёт:</b>",
     `• Объём газобетона: ${calc.totalVolume} м³`,
     `• Количество блоков: ${calc.totalBlocks} шт`,
     `• Количество поддонов: ${calc.totalPallets} шт`,
     `• Клей: ${calc.totalGlueBags} мешков`,
     `• Вес: ${Math.round(calc.totalWeight)} кг`,
     "",
-    "💰 *Стоимость:*",
+    "💰 <b>Стоимость:</b>",
     `• Блоки: ${formatRub(calc.blocksCost)}`,
     `• Клей: ${formatRub(calc.glueCost)}`,
     `• Доставка: ${formatRub(calc.deliveryCost)}`,
-    `• *Итого: ${formatRub(calc.totalCost)}*`,
+    `• <b>Итого: ${formatRub(calc.totalCost)}</b>`,
     "",
     `🕐 ${new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow" })}`,
   );
@@ -42,8 +42,8 @@ function formatLeadMessage(lead: Lead, calc: Calculation): string {
   return lines.join("\n");
 }
 
-function escapeMarkdown(text: string): string {
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
+function esc(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function formatRub(n: number): string {
@@ -63,7 +63,7 @@ export const telegramProvider = {
       body: JSON.stringify({
         chat_id: config.telegram.chatId,
         text,
-        parse_mode: "MarkdownV2",
+        parse_mode: "HTML",
       }),
     });
 
